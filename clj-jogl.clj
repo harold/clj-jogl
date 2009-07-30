@@ -35,10 +35,10 @@
 
 (defn gl-display [canvas]
 ;  (println "gl-display" canvas)
-  (let [gl (.getGL canvas)
+  (let [#^GL gl (.getGL canvas)
         dt (- (get-time) @t)]
     (dosync (alter t get-time))
-    (dosync (alter x + (/ dt 1000.0)))
+    (dosync (alter x + (/ dt 2000.0)))
     (when (> @x 1) (dosync (alter x (fn [_] -1))))
     (doto gl
       (.glClearColor 0 0 0 0)
@@ -73,6 +73,7 @@
       (.show))
     (loop []
       (when (.isVisible frame)
+        (Thread/sleep 1000)
         (recur)))))
 
 (println "=== begin ===")
