@@ -29,8 +29,14 @@
         world-coords-far  (make-array Double/TYPE 4)]
     (doto gl
       (.glMatrixMode GL/GL_MODELVIEW)
-      (.glGetIntegerv GL/GL_VIEWPORT          viewport   0)
+      (.glLoadIdentity)
+      (.glPushMatrix)
+      (.glTranslatef (- (:x @g-camera))
+                     (- (:y @g-camera))
+                     (:z @g-camera))
       (.glGetDoublev  GL/GL_MODELVIEW_MATRIX  modelview  0)
+      (.glPopMatrix)
+      (.glGetIntegerv GL/GL_VIEWPORT          viewport   0)
       (.glGetDoublev  GL/GL_PROJECTION_MATRIX projection 0))
     (.gluUnProject glu x (- (nth viewport 3) y) 0
                    modelview         (int 0)
@@ -42,20 +48,25 @@
                    projection        (int 0)
                    viewport          (int 0)
                    world-coords-far  (int 0))
-    {:x (* (+ (nth world-coords-near 0)
-              (nth world-coords-far 0))
-           (/ z 10000.0))
-     :y (* (+ (nth world-coords-near 1)
-              (nth world-coords-far 1))
-           (/ z 10000.0))}))
+    {:x (+ (nth world-coords-near 0)
+           (* (- (nth world-coords-far 0)
+                 (nth world-coords-near 0))
+              (/ z 999.0)))
+     :y (+ (nth world-coords-near 1)
+           (* (- (nth world-coords-far 1)
+                 (nth world-coords-near 1))
+              (/ z 999.0)))}))
 
-(defn handle-mouse-pressed [event]
+(defn update-mouse-xy [event]
   (let [e (:data event)
         world-point (screen-to-world (.getX e)
                                      (.getY e)
                                      (double (- (:z @g-camera))))]
     (def mx (:x world-point))
     (def my (:y world-point))))
+
+(defn handle-mouse-pressed [event]
+  (update-mouse-xy event))
 
 (defn handle-mouse-dragged [event]
   (let [e (:data event)
@@ -66,10 +77,9 @@
           dy (- (:y world-point) my)
           cx (:x @g-camera)
           cy (:y @g-camera)]
-      (dosync (alter g-camera assoc :x (- cx dx)
-                     :y (+ cy dy))))
-    (def mx (:x world-point))
-    (def my (:y world-point))))
+      (dosync (alter g-camera assoc :x (+ cx dx)
+                                    :y (- cy dy))))
+    (update-mouse-xy event)))
 
 (defn fire-event [event]
   (dosync (alter g-events conj event)))
@@ -108,7 +118,7 @@
     (doto gl
       (.glMatrixMode GL/GL_PROJECTION)
       (.glLoadIdentity)
-      (.glFrustum (- 0 a) a -1 1 1 10000)
+      (.glFrustum (- 0 a) a -1 1 1 1000)
       (.glMatrixMode GL/GL_MODELVIEW)
       (.glLoadIdentity))))
 
@@ -127,8 +137,8 @@
       (.glMatrixMode GL/GL_MODELVIEW)
       (.glLoadIdentity)
       (.glPushMatrix)
-      (.glTranslatef (:x @g-camera)
-                     (:y @g-camera)
+      (.glTranslatef (- (:x @g-camera))
+                     (- (:y @g-camera))
                      (:z @g-camera))
       (.glPushMatrix)
       (.glBegin GL/GL_POLYGON)
@@ -201,7 +211,7 @@
 (defn go []
   (let [frame (Frame. "clj-jogl")
         canvas (GLCanvas.)
-        animator (FPSAnimator. canvas 60)
+        animator (FPSAnimator. canvas 60 true)
         mouse-handler (get-mouse-handler)]
     (.addGLEventListener canvas (get-gl-app))
     (.start animator)
