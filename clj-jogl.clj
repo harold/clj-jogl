@@ -21,38 +21,21 @@
     (.close))
   nil)
 
-(defn log-matrix [m]
-  (log (nth m  0) " " (nth m  1) " " (nth m  2) " " (nth m  3))
-  (log (nth m  4) " " (nth m  5) " " (nth m  6) " " (nth m  7))
-  (log (nth m  8) " " (nth m  9) " " (nth m 10) " " (nth m 11))
-  (log (nth m 12) " " (nth m 13) " " (nth m 14) " " (nth m 15)))
-
 (def g-foo (ref {:x 0 :y 0}))
 
-(defn handle-mouse-pressed [event]
-  (let [e (:data event)
-        #^GLU glu (GLU.)
-        #^GL  gl (GLU/getCurrentGL)
-        viewport (make-array Integer/TYPE 4)
-        modelview (make-array Double/TYPE 16)
-        projection (make-array Double/TYPE 16)
+(defn screen-to-world [x y z]
+  (let [#^GLU glu (GLU.)
+        #^GL  gl  (GLU/getCurrentGL)
+        viewport   (make-array Integer/TYPE 4)
+        modelview  (make-array Double/TYPE  16)
+        projection (make-array Double/TYPE  16)
         world-coords-near (make-array Double/TYPE 4)
-        world-coords-far  (make-array Double/TYPE 4)
-        x (double (.getX e))
-        y (double (.getY e))
-        z (double (- (:z @g-camera)))]
+        world-coords-far  (make-array Double/TYPE 4)]
     (doto gl
       (.glMatrixMode GL/GL_MODELVIEW)
       (.glGetIntegerv GL/GL_VIEWPORT          viewport   0)
       (.glGetDoublev  GL/GL_MODELVIEW_MATRIX  modelview  0)
       (.glGetDoublev  GL/GL_PROJECTION_MATRIX projection 0))
-    (log "x: " x)
-    (log "y: " (- (nth viewport 3) y))
-    (log "z: " z)
-    (log "modelview:")
-    (log-matrix modelview)
-    (log "projection:")
-    (log-matrix projection)
     (.gluUnProject glu x (- (nth viewport 3) y) 0
                    modelview         (int 0)
                    projection        (int 0)
@@ -63,22 +46,19 @@
                    projection        (int 0)
                    viewport          (int 0)
                    world-coords-far  (int 0))
-    (log "near: ")
-    (log (nth world-coords-near 0) " "
-         (nth world-coords-near 1) " "
-         (nth world-coords-near 2) " "
-         (nth world-coords-near 3) " ")
-    (log "far: ")
-    (log (nth world-coords-far 0) " "
-         (nth world-coords-far 1) " "
-         (nth world-coords-far 2) " "
-         (nth world-coords-far 3) " ")
-    (dosync (alter g-foo (fn [_] {:x (* (+ (nth world-coords-near 0)
-                                           (nth world-coords-far 0))
-                                        (/ z 10000.0))
-                                  :y (* (+ (nth world-coords-near 1)
-                                           (nth world-coords-far 1))
-                                        (/ z 10000.0))})))))
+    {:x (* (+ (nth world-coords-near 0)
+              (nth world-coords-far 0))
+           (/ z 10000.0))
+     :y (* (+ (nth world-coords-near 1)
+              (nth world-coords-far 1))
+           (/ z 10000.0))}))
+
+(defn handle-mouse-pressed [event]
+  (let [e (:data event)
+        world-point (screen-to-world (.getX e)
+                                     (.getY e)
+                                     (double (- (:z @g-camera))))]
+    (dosync (alter g-foo (fn [_] world-point)))))
 
 (def g-events (ref []))
 
