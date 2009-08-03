@@ -7,21 +7,17 @@
            [javax.media.opengl.glu GLU]
            [java.io File FileWriter]))
 
+(load-file "log.clj")
+
+(def g-camera (ref {:x  0 :y  0 :z  -10
+                    :tx 0 :ty 0 :tz -10}))
+(def g-events (ref []))
+
 (defn get-window-adapter [frame animator]
   (proxy [WindowAdapter] []
     (windowClosing [e] (do
                          (.stop animator)
                          (.setVisible frame false)))))
-
-(.delete (File. "C:\\log.log"))
-(defn log [& strings]
-  (doto (FileWriter. "C:\\log.log" true)
-    (.write (apply str strings))
-    (.write "\r\n")
-    (.close))
-  nil)
-
-(def g-foo (ref {:x 0 :y 0}))
 
 (defn screen-to-world [x y z]
   (let [#^GLU glu (GLU.)
@@ -58,9 +54,22 @@
         world-point (screen-to-world (.getX e)
                                      (.getY e)
                                      (double (- (:z @g-camera))))]
-    (dosync (alter g-foo (fn [_] world-point)))))
+    (def mx (:x world-point))
+    (def my (:y world-point))))
 
-(def g-events (ref []))
+(defn handle-mouse-dragged [event]
+  (let [e (:data event)
+        world-point (screen-to-world (.getX e)
+                                     (.getY e)
+                                     (double (- (:z @g-camera))))]
+    (let [dx (- mx (:x world-point))
+          dy (- (:y world-point) my)
+          cx (:x @g-camera)
+          cy (:y @g-camera)]
+      (dosync (alter g-camera assoc :x (- cx dx)
+                     :y (+ cy dy))))
+    (def mx (:x world-point))
+    (def my (:y world-point))))
 
 (defn fire-event [event]
   (dosync (alter g-events conj event)))
@@ -68,12 +77,21 @@
 (defn process-event [event]
 ;  (log event)
   (cond (= "mousePressed" (:type event)) (handle-mouse-pressed event)
+        (= "mouseDragged" (:type event)) (handle-mouse-dragged event)
         :else (log "Unhandled event: " event)))
 
 (defn process-events []
   (doseq [event @g-events]
     (process-event event))
   (dosync (alter g-events (fn [_] []))))
+
+(defn tick [dt]
+;  (log (double dt))
+  (let [z (:z @g-camera)
+        tz (:tz @g-camera)
+        dz (Math/abs (- z tz))]
+    (if (< 0.001 dz)
+          (dosync (alter g-camera assoc :z (+ z (/ (- tz z) 10.0)))))))
 
 (defn gl-init [canvas]
 ;  (log "gl-init:" canvas)
@@ -96,18 +114,13 @@
 
 (defn get-time [& _] (/ (System/nanoTime) 1000000))
 (def t (ref (get-time)))
-(def x (ref 1))
-(def g-camera (ref {:x 0 :y 0 :z -10}))
 
 (defn gl-display [canvas]
   (process-events)
 ;  (log "gl-display" canvas)
   (let [#^GL gl (.getGL canvas)
-        dt (- (get-time) @t)]
-;    (log (double dt))
-    (dosync (alter t get-time))
-    (dosync (alter x + (/ dt 50.0)))
-;    (when (> @x 1) (dosync (alter x (fn [_] -1))))
+             dt (- (get-time) @t)]
+    (tick dt)
     (doto gl
       (.glClearColor 0 0 0 0)
       (.glClear (bit-or GL/GL_COLOR_BUFFER_BIT GL/GL_DEPTH_BUFFER_BIT))
@@ -118,19 +131,19 @@
                      (:y @g-camera)
                      (:z @g-camera))
       (.glPushMatrix)
-      (.glTranslatef (:x @g-foo) (:y @g-foo) 0)
       (.glBegin GL/GL_POLYGON)
       (.glColor3f   1  0 0)
       (.glVertex3f -5 -5 0)
-      (.glColor3f   0  1 0)
+      (.glColor3f   1  0.5 0)
       (.glVertex3f  5 -5 0)
-      (.glColor3f   1  1 1)
+      (.glColor3f   0.5 0.5 0.5)
       (.glVertex3f  5  5 0)
-      (.glColor3f   0  0 1)
+      (.glColor3f   0.2 0.2 0.4)
       (.glVertex3f -5  5 0)
       (.glEnd)
       (.glPopMatrix)
-      (.glPopMatrix))))
+      (.glPopMatrix))
+    (dosync (alter t get-time))))
 
 (defn get-gl-app []
   (proxy [GLEventListener] []
@@ -149,8 +162,6 @@
   )
 
 (defn mouse-pressed [e]
-  (def mx (.getX e))
-  (def my (.getY e))
 ;  (log "mousePressed:" e)
   (fire-event {:type "mousePressed" :data e}))
 
@@ -164,14 +175,7 @@
 
 (defn mouse-dragged [e]
 ;  (log "mouseDragged:" e)
-  (let [dx (/ (- (.getX e) mx) 15) 
-        dy (/ (- my (.getY e)) 15)
-        cx (:x @g-camera)
-        cy (:y @g-camera)]
-;    (dosync (alter g-camera assoc :x (+ cx dx)
-;                                  :y (+ cy dy))))
-  (def mx (.getX e))
-  (def my (.getY e))))
+  (fire-event {:type "mouseDragged" :data e}))
 
 (defn mouse-moved [e]
 ;  (log "mouseMoved:" e)
@@ -179,10 +183,9 @@
 
 (defn mouse-wheel-moved [e]
 ;  (log "mouseWheelMoved:" e)
-  (let [dz (/ (.getWheelRotation e) 2)
+  (let [dz (* 2 (.getWheelRotation e))
         cz (:z @g-camera)]
-    (dosync (alter g-camera assoc :z (+ cz dz)))))
-
+    (dosync (alter g-camera assoc :tz (+ cz dz)))))
 
 (defn get-mouse-handler []
   (proxy [MouseListener MouseMotionListener MouseWheelListener] []
