@@ -51,11 +51,11 @@
     {:x (+ (nth world-coords-near 0)
            (* (- (nth world-coords-far 0)
                  (nth world-coords-near 0))
-              (/ z 999.0)))
+              (/ (- z 1) 999.0)))
      :y (+ (nth world-coords-near 1)
            (* (- (nth world-coords-far 1)
                  (nth world-coords-near 1))
-              (/ z 999.0)))}))
+              (/ (- z 1) 999.0)))}))
 
 (defn update-mouse-xy [event]
   (let [e (:data event)
