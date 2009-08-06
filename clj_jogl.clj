@@ -1,11 +1,14 @@
 (ns clj-jogl
   (:import [java.awt Frame]
-           [java.awt.event WindowAdapter MouseListener
-                           MouseMotionListener MouseWheelListener]
+           (java.awt.event WindowAdapter MouseListener 
+			   MouseMotionListener MouseWheelListener
+			   KeyAdapter)
            [com.sun.opengl.util FPSAnimator]
            [javax.media.opengl GLCanvas GLEventListener GL]
            [javax.media.opengl.glu GLU]
-           [java.io File FileWriter]))
+           [java.io File FileWriter])
+  (:require [clj-jogl-gl :as jgl]
+	    [clj-jogl-commands :as jcmd]))
 
 (load-file "log.clj")
 (load-file "srg_object.clj")
@@ -13,6 +16,7 @@
 (def g-object (srg-object/from-xml "island.xml"))
 (def g-camera (ref {:x  0 :y  0 :z  -10
                     :tx 0 :ty 0 :tz -10}))
+(def g-cmd-system (jcmd/create-command-system g-camera))
 (def g-events (ref []))
 
 (defn get-window-adapter [frame animator]
@@ -21,67 +25,25 @@
                          (.stop animator)
                          (.setVisible frame false)))))
 
-(defn screen-to-world [x y z]
-  (let [#^GLU glu (GLU.)
-        #^GL  gl  (GLU/getCurrentGL)
-        viewport   (make-array Integer/TYPE 4)
-        modelview  (make-array Double/TYPE  16)
-        projection (make-array Double/TYPE  16)
-        world-coords-near (make-array Double/TYPE 4)
-        world-coords-far  (make-array Double/TYPE 4)]
-    (doto gl
-      (.glMatrixMode GL/GL_MODELVIEW)
-      (.glLoadIdentity)
-      (.glPushMatrix)
-      (.glTranslatef (- (:x @g-camera))
-                     (- (:y @g-camera))
-                     (:z @g-camera))
-      (.glGetDoublev  GL/GL_MODELVIEW_MATRIX  modelview  0)
-      (.glPopMatrix)
-      (.glGetIntegerv GL/GL_VIEWPORT          viewport   0)
-      (.glGetDoublev  GL/GL_PROJECTION_MATRIX projection 0))
-    (.gluUnProject glu x (- (nth viewport 3) y) 0
-                   modelview         (int 0)
-                   projection        (int 0)
-                   viewport          (int 0)
-                   world-coords-near (int 0))
-    (.gluUnProject glu x (- (nth viewport 3) y) 1.0
-                   modelview         (int 0)
-                   projection        (int 0)
-                   viewport          (int 0)
-                   world-coords-far  (int 0))
-    {:x (+ (nth world-coords-near 0)
-           (* (- (nth world-coords-far 0)
-                 (nth world-coords-near 0))
-              (/ (- z 1) 999.0)))
-     :y (+ (nth world-coords-near 1)
-           (* (- (nth world-coords-far 1)
-                 (nth world-coords-near 1))
-              (/ (- z 1) 999.0)))}))
-
-(defn update-mouse-xy [event]
-  (let [e (:data event)
-        world-point (screen-to-world (.getX e)
-                                     (.getY e)
-                                     (double (- (:z @g-camera))))]
-    (def mx (:x world-point))
-    (def my (:y world-point))))
-
 (defn handle-mouse-pressed [event]
-  (update-mouse-xy event))
+  (let [e (:data event)
+	x (.getX e)
+	y (.getY e)]
+    (jcmd/fire-command g-cmd-system {:type :relative-drag-start 
+				     :drag-start [x y] })))
 
 (defn handle-mouse-dragged [event]
   (let [e (:data event)
-        world-point (screen-to-world (.getX e)
-                                     (.getY e)
-                                     (double (- (:z @g-camera))))]
-    (let [dx (- mx (:x world-point))
-          dy (- (:y world-point) my)
-          cx (:x @g-camera)
-          cy (:y @g-camera)]
-      (dosync (alter g-camera assoc :x (+ cx dx)
-                                    :y (- cy dy))))
-    (update-mouse-xy event)))
+	x (.getX e)
+	y (.getY e)]
+    (jcmd/fire-command g-cmd-system {:type :relative-drag
+				     :data [x y] })))
+
+(defn handle-key-typed [event]
+  (let [e (:data event)
+	ch (.getKeyChar e)]
+    (cond (= ch \q) (jcmd/spew-commands g-cmd-system)
+	  (= ch \w) (jcmd/replay-commands g-cmd-system))))
 
 (defn fire-event [event]
   (dosync (alter g-events conj event)))
@@ -90,6 +52,7 @@
 ;  (log event)
   (cond (= "mousePressed" (:type event)) (handle-mouse-pressed event)
         (= "mouseDragged" (:type event)) (handle-mouse-dragged event)
+	(= "keyTyped" (:type event)) (handle-key-typed event)
         :else (log "Unhandled event: " event)))
 
 (defn process-events []
@@ -214,6 +177,13 @@
     (mouseMoved      [e] (mouse-moved e))
     (mouseWheelMoved [e] (mouse-wheel-moved e))))
 
+(defn key-typed [e]
+  (fire-event {:type "keyTyped" :data e}))
+
+(defn get-key-handler []
+  (proxy [KeyAdapter] []
+    (keyTyped [e] (key-typed e))))
+
 (defn go []
   (let [frame (Frame. "clj-jogl")
         canvas (GLCanvas.)
@@ -224,7 +194,8 @@
     (doto canvas
       (.addMouseListener mouse-handler)
       (.addMouseMotionListener mouse-handler)
-      (.addMouseWheelListener mouse-handler))
+      (.addMouseWheelListener mouse-handler)
+      (.addKeyListener (get-key-handler)))
     (doto frame
       (.addWindowListener (get-window-adapter frame animator))
       (.add canvas)
