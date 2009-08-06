@@ -8,7 +8,9 @@
            [java.io File FileWriter]))
 
 (load-file "log.clj")
+(load-file "srg-object.clj")
 
+(def g-object (srg-object/from-xml "island.xml"))
 (def g-camera (ref {:x  0 :y  0 :z  -10
                     :tx 0 :ty 0 :tz -10}))
 (def g-events (ref []))
@@ -109,7 +111,7 @@
     (doto gl
       (.setSwapInterval 1)
       (.glEnable GL/GL_CULL_FACE)
-      (.glEnable GL/GL_DEPTH_TEST))))
+      (.glDisable GL/GL_DEPTH_TEST))))
 
 (defn gl-reshape [canvas x y w h]
 ;  (log "gl-reshape:" canvas x y w h)
@@ -125,6 +127,21 @@
 (defn get-time [& _] (/ (System/nanoTime) 1000000))
 (def t (ref (get-time)))
 
+(defn draw-object [#^GL gl object]
+  (doseq [polygon object]
+      (.glBegin gl GL/GL_POLYGON)
+      (doseq [vertex polygon]
+        (let [color (:color vertex)
+              position (:position vertex)
+              r (:r color)
+              g (:g color)
+              b (:b color)
+              x (:x position)
+              y (:y position)]
+          (.glColor3f  gl r g b)
+          (.glVertex3f gl x y 0)))
+      (.glEnd gl)))
+
 (defn gl-display [canvas]
   (process-events)
 ;  (log "gl-display" canvas)
@@ -132,7 +149,7 @@
              dt (- (get-time) @t)]
     (tick dt)
     (doto gl
-      (.glClearColor 0 0 0 0)
+      (.glClearColor 0.1 0.1 0.1 0)
       (.glClear (bit-or GL/GL_COLOR_BUFFER_BIT GL/GL_DEPTH_BUFFER_BIT))
       (.glMatrixMode GL/GL_MODELVIEW)
       (.glLoadIdentity)
@@ -140,18 +157,7 @@
       (.glTranslatef (- (:x @g-camera))
                      (- (:y @g-camera))
                      (:z @g-camera))
-      (.glPushMatrix)
-      (.glBegin GL/GL_POLYGON)
-      (.glColor3f   1  0 0)
-      (.glVertex3f -5 -5 0)
-      (.glColor3f   1  0.5 0)
-      (.glVertex3f  5 -5 0)
-      (.glColor3f   0.5 0.5 0.5)
-      (.glVertex3f  5  5 0)
-      (.glColor3f   0.2 0.2 0.4)
-      (.glVertex3f -5  5 0)
-      (.glEnd)
-      (.glPopMatrix)
+      (draw-object g-object)
       (.glPopMatrix))
     (dosync (alter t get-time))))
 
@@ -193,7 +199,7 @@
 
 (defn mouse-wheel-moved [e]
 ;  (log "mouseWheelMoved:" e)
-  (let [dz (* 2 (.getWheelRotation e))
+  (let [dz (* -3 (.getWheelRotation e))
         cz (:z @g-camera)]
     (dosync (alter g-camera assoc :tz (+ cz dz)))))
 

@@ -1,0 +1,36 @@
+<object version="1">
+  <polygon>
+    <vertex color="0.4 0.4 0.9" position="-60 -90" />
+    <vertex color="0.3 0.3 0.8" position="60 -90" />
+    <vertex color="0.2 0.2 0.7" position="60 90" />
+    <vertex color="0.1 0.1 0.6" position="-60 90" />
+  </polygon>
+  <polygon>
+    <vertex color="0.0 0.7 0.0" position="-25 -38" />
+    <vertex color="0.0 0.8 0.0" position="0 -40" />
+    <vertex color="0.0 0.7 0.0" position="23 -35" />
+    <vertex color="0.0 0.8 0.0" position="28 10" />
+    <vertex color="0.0 0.8 0.0" position="25 40" />
+    <vertex color="0.0 0.6 0.0" position="-10 42" />
+    <vertex color="0.0 0.6 0.0" position="-20 35" />
+    <vertex color="0.0 0.6 0.0" position="-27 0" />
+  </polygon>
+  <polygon>
+    <vertex color="0.3 0.2 0.2" position="-5 -39.6" />
+    <vertex color="0.3 0.3 0.1" position="0 -40" />
+    <vertex color="0.3 0.2 0.2" position="12 -10" />
+    <vertex color="0.3 0.2 0.1" position="15 40.6" />
+    <vertex color="0.3 0.3 0.2" position="10 40.9" />
+    <vertex color="0.3 0.2 0.1" position="5 -10" />
+  </polygon>
+  <polygon>
+    <vertex color="0.0 0.2 0.0" position="-15 5" />
+    <vertex color="0.0 0.3 0.0" position="-12 3" />
+    <vertex color="0.0 0.3 0.0" position="-9 3" />
+    <vertex color="0.0 0.2 0.0" position="-6 5" />
+    <vertex color="0.0 0.2 0.0" position="-6 8" />
+    <vertex color="0.0 0.2 0.0" position="-9 11" />
+    <vertex color="0.0 0.2 0.0" position="-14 12" />
+    <vertex color="0.0 0.2 0.0" position="-16 9" />
+  </polygon>
+</object>
