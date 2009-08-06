@@ -8,7 +8,7 @@
            [java.io File FileWriter]))
 
 (load-file "log.clj")
-(load-file "srg-object.clj")
+(load-file "srg_object.clj")
 
 (def g-object (srg-object/from-xml "island.xml"))
 (def g-camera (ref {:x  0 :y  0 :z  -10
@@ -230,11 +230,8 @@
       (.add canvas)
       (.setSize (+ 800 16) (+ 450 36))
       (.setIgnoreRepaint true)
-      (.show))
-    (loop []
-      (when (.isVisible frame)
-        (Thread/sleep 1000)
-        (recur)))))
+      (.show))))
+
 
 (log "=== begin ===")
 (go)
