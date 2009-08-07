@@ -1,3 +1,6 @@
+(ns log
+  (:import (java.io File FileWriter)))
+
 (.delete (File. "C:\\log.log"))
 (defn log [& strings]
   (doto (FileWriter. "C:\\log.log" true)

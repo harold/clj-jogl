@@ -1,17 +1,14 @@
 (ns clj-jogl
-  (:import [java.awt Frame]
-           (java.awt.event WindowAdapter MouseListener 
-			   MouseMotionListener MouseWheelListener
-			   KeyAdapter)
-           [com.sun.opengl.util FPSAnimator]
-           [javax.media.opengl GLCanvas GLEventListener GL]
-           [javax.media.opengl.glu GLU]
-           [java.io File FileWriter])
+  (:import (java.awt Frame)
+           (java.awt.event WindowAdapter MouseAdapter KeyAdapter)
+           (com.sun.opengl.util FPSAnimator)
+           (javax.media.opengl GLCanvas GLEventListener GL)
+           (javax.media.opengl.glu GLU)
+           (java.io File FileWriter))
   (:require [clj-jogl-gl :as jgl]
-	    [clj-jogl-commands :as jcmd]))
-
-(load-file "log.clj")
-(load-file "srg_object.clj")
+            [clj-jogl-commands :as jcmd]
+            [log :as log]
+            [srg-object :as srg-object]))
 
 (def g-object (srg-object/from-xml "island.xml"))
 (def g-camera (ref {:x  0 :y  0 :z  -10
@@ -27,33 +24,32 @@
 
 (defn handle-mouse-pressed [event]
   (let [e (:data event)
-	x (.getX e)
-	y (.getY e)]
-    (jcmd/fire-command g-cmd-system {:type :relative-drag-start 
-				     :drag-start [x y] })))
+        x (.getX e)
+        y (.getY e)]
+    (jcmd/fire-command g-cmd-system {:type :relative-drag-start
+                                     :drag-start [x y] })))
 
 (defn handle-mouse-dragged [event]
   (let [e (:data event)
-	x (.getX e)
-	y (.getY e)]
+        x (.getX e)
+        y (.getY e)]
     (jcmd/fire-command g-cmd-system {:type :relative-drag
-				     :data [x y] })))
+                                     :data [x y] })))
 
 (defn handle-key-typed [event]
   (let [e (:data event)
-	ch (.getKeyChar e)]
+        ch (.getKeyChar e)]
     (cond (= ch \q) (jcmd/spew-commands g-cmd-system)
-	  (= ch \w) (jcmd/replay-commands g-cmd-system))))
+          (= ch \w) (jcmd/replay-commands g-cmd-system))))
 
 (defn fire-event [event]
   (dosync (alter g-events conj event)))
 
 (defn process-event [event]
-;  (log event)
   (cond (= "mousePressed" (:type event)) (handle-mouse-pressed event)
         (= "mouseDragged" (:type event)) (handle-mouse-dragged event)
-	(= "keyTyped" (:type event)) (handle-key-typed event)
-        :else (log "Unhandled event: " event)))
+        (= "keyTyped" (:type event)) (handle-key-typed event)
+        :else (log/log "Unhandled event: " event)))
 
 (defn process-events []
   (doseq [event @g-events]
@@ -61,15 +57,14 @@
   (dosync (alter g-events (fn [_] []))))
 
 (defn tick [dt]
-;  (log (double dt))
+  (log/log (double dt))
   (let [z (:z @g-camera)
         tz (:tz @g-camera)
         dz (Math/abs (- z tz))]
     (if (< 0.001 dz)
-          (dosync (alter g-camera assoc :z (+ z (/ (- tz z) 10.0)))))))
+      (dosync (alter g-camera assoc :z (+ z (/ (- tz z) 10.0)))))))
 
 (defn gl-init [canvas]
-;  (log "gl-init:" canvas)
   (let [gl (.getGL canvas)]
     (doto gl
       (.setSwapInterval 1)
@@ -77,7 +72,6 @@
       (.glDisable GL/GL_DEPTH_TEST))))
 
 (defn gl-reshape [canvas x y w h]
-;  (log "gl-reshape:" canvas x y w h)
   (let [gl (.getGL canvas)
         a (double (/ w h))]
     (doto gl
@@ -92,24 +86,23 @@
 
 (defn draw-object [#^GL gl object]
   (doseq [polygon object]
-      (.glBegin gl GL/GL_POLYGON)
-      (doseq [vertex polygon]
-        (let [color (:color vertex)
-              position (:position vertex)
-              r (:r color)
-              g (:g color)
-              b (:b color)
-              x (:x position)
-              y (:y position)]
-          (.glColor3f  gl r g b)
-          (.glVertex3f gl x y 0)))
-      (.glEnd gl)))
+    (.glBegin gl GL/GL_POLYGON)
+    (doseq [vertex polygon]
+      (let [color (:color vertex)
+            position (:position vertex)
+            r (:r color)
+            g (:g color)
+            b (:b color)
+            x (:x position)
+            y (:y position)]
+        (.glColor3f  gl r g b)
+        (.glVertex3f gl x y 0)))
+    (.glEnd gl)))
 
 (defn gl-display [canvas]
   (process-events)
-;  (log "gl-display" canvas)
   (let [#^GL gl (.getGL canvas)
-             dt (- (get-time) @t)]
+        dt (- (get-time) @t)]
     (tick dt)
     (doto gl
       (.glClearColor 0.1 0.1 0.1 0)
@@ -130,59 +123,22 @@
     (reshape [canvas x y w h] (gl-reshape canvas x y w h))
     (display [canvas] (gl-display canvas))
     (displayChanged [canvas mode-changed device-changed]
-      (log "DisplayChanged:" canvas mode-changed device-changed))))
-
-(defn mouse-entered [e]
-;  (log "mouseEntered:" e)
-  )
-
-(defn mouse-exited [e]
-;  (log "mouseExited:" e)
-  )
-
-(defn mouse-pressed [e]
-;  (log "mousePressed:" e)
-  (fire-event {:type "mousePressed" :data e}))
-
-(defn mouse-released [e]
-;  (log "mouseReleased:" e)
-  )
-
-(defn mouse-clicked [e]
-;  (log "mouseClicked:" e)
-  )
-
-(defn mouse-dragged [e]
-;  (log "mouseDragged:" e)
-  (fire-event {:type "mouseDragged" :data e}))
-
-(defn mouse-moved [e]
-;  (log "mouseMoved:" e)
-  )
+      (log/log "DisplayChanged:" canvas mode-changed device-changed))))
 
 (defn mouse-wheel-moved [e]
-;  (log "mouseWheelMoved:" e)
   (let [dz (* -3 (.getWheelRotation e))
         cz (:z @g-camera)]
     (dosync (alter g-camera assoc :tz (+ cz dz)))))
 
 (defn get-mouse-handler []
-  (proxy [MouseListener MouseMotionListener MouseWheelListener] []
-    (mouseEntered    [e] (mouse-entered e))
-    (mouseExited     [e] (mouse-exited e))
-    (mousePressed    [e] (mouse-pressed e))
-    (mouseReleased   [e] (mouse-released e))
-    (mouseClicked    [e] (mouse-clicked e))
-    (mouseDragged    [e] (mouse-dragged e))
-    (mouseMoved      [e] (mouse-moved e))
+  (proxy [MouseAdapter] []
+    (mousePressed    [e] (fire-event {:type "mousePressed" :data e}))
+    (mouseDragged    [e] (fire-event {:type "mouseDragged" :data e}))
     (mouseWheelMoved [e] (mouse-wheel-moved e))))
-
-(defn key-typed [e]
-  (fire-event {:type "keyTyped" :data e}))
 
 (defn get-key-handler []
   (proxy [KeyAdapter] []
-    (keyTyped [e] (key-typed e))))
+    (keyTyped [e] (fire-event {:type "keyTyped" :data e}))))
 
 (defn go []
   (let [frame (Frame. "clj-jogl")
@@ -203,7 +159,4 @@
       (.setIgnoreRepaint true)
       (.show))))
 
-
-(log "=== begin ===")
 (go)
-(log "=== end ===")

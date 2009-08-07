@@ -2,7 +2,7 @@
   (:import [javax.media.opengl GL]
            [javax.media.opengl.glu GLU]))
 
-(defn screen-to-world 
+(defn screen-to-world
   "Take screen points and the camera and return a map
 of global space x y at the distance you passed in for z
 x - screen space x
