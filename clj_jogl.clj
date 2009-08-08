@@ -28,14 +28,20 @@
         x (.getX e)
         y (.getY e)]
     (jcmd/fire-command g-cmd-system {:type :relative-drag-start
-                                     :drag-start [x y] })))
+                                     :drag-start [x y]})))
 
 (defn handle-mouse-dragged [event]
   (let [e (:data event)
         x (.getX e)
         y (.getY e)]
     (jcmd/fire-command g-cmd-system {:type :relative-drag
-                                     :data [x y] })))
+                                     :data [x y]})))
+
+(defn handle-mouse-wheel-moved [event]
+  (let [e (:data event)
+        direction (.getWheelRotation e)]
+    (jcmd/fire-command g-cmd-system {:type :relative-zoom
+                                     :data direction})))
 
 (defn handle-key-typed [event]
   (let [e (:data event)
@@ -47,8 +53,9 @@
   (dosync (alter g-events conj event)))
 
 (defn process-event [event]
-  (cond (= "mousePressed" (:type event)) (handle-mouse-pressed event)
-        (= "mouseDragged" (:type event)) (handle-mouse-dragged event)
+  (cond (= "mousePressed"    (:type event)) (handle-mouse-pressed event)
+        (= "mouseDragged"    (:type event)) (handle-mouse-dragged event)
+        (= "mouseWheelMoved" (:type event)) (handle-mouse-wheel-moved event)
         (= "keyTyped" (:type event)) (handle-key-typed event)
         :else (log/log "Unhandled event: " event)))
 
@@ -133,16 +140,11 @@
     (displayChanged [canvas mode-changed device-changed]
       (log/log "DisplayChanged:" canvas mode-changed device-changed))))
 
-(defn mouse-wheel-moved [e]
-  (let [dz (* -3 (.getWheelRotation e))
-        cz (:z @g-camera)]
-    (dosync (alter g-camera assoc :tz (+ cz dz)))))
-
 (defn get-mouse-handler []
   (proxy [MouseAdapter] []
-    (mousePressed    [e] (fire-event {:type "mousePressed" :data e}))
-    (mouseDragged    [e] (fire-event {:type "mouseDragged" :data e}))
-    (mouseWheelMoved [e] (mouse-wheel-moved e))))
+    (mousePressed    [e] (fire-event {:type "mousePressed"    :data e}))
+    (mouseDragged    [e] (fire-event {:type "mouseDragged"    :data e}))
+    (mouseWheelMoved [e] (fire-event {:type "mouseWheelMoved" :data e}))))
 
 (defn get-key-handler []
   (proxy [KeyAdapter] []

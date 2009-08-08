@@ -34,13 +34,21 @@
                      :y (- cy dy))))
     (relative-drag-start cmd-system-ref [cmd-x cmd-y])))
 
+(defn relative-zoom [cmd-system-ref cmd]
+  (let [direction (:data cmd)
+        camera (:camera @cmd-system-ref)
+        dz (* -10 direction)
+        cz (:z @camera)]
+    (dosync (alter camera assoc :tz (+ cz dz)))))
+
 (defn fire-command
   "Fire off a command.  This will ready the command for execution"
   [cmd-system cmd]
   (let [cmd-type (:type cmd)]
     (cond
       (= cmd-type :relative-drag-start) (relative-drag-start cmd-system (:drag-start cmd))
-      (= cmd-type :relative-drag) (relative-drag cmd-system cmd)))
+      (= cmd-type :relative-drag) (relative-drag cmd-system cmd)
+      (= cmd-type :relative-zoom) (relative-zoom cmd-system cmd)))
   (dosync (alter cmd-system assoc :commands (conj (:commands @cmd-system) cmd))))
 
 (defn spew-commands
