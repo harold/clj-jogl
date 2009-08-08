@@ -7,10 +7,11 @@
            (java.io File FileWriter))
   (:require [clj-jogl-gl :as jgl]
             [clj-jogl-commands :as jcmd]
+            [clj-jogl-tess :as jtess]
             [log :as log]
             [srg-object :as srg-object]))
 
-(def g-object (srg-object/from-xml "island.xml"))
+(def g-object (ref (srg-object/from-xml "island.xml")))
 (def g-camera (ref {:x  0 :y  0 :z  -10
                     :tx 0 :ty 0 :tz -10}))
 (def g-cmd-system (jcmd/create-command-system g-camera))
@@ -84,20 +85,27 @@
 (defn get-time [& _] (/ (System/nanoTime) 1000000))
 (def t (ref (get-time)))
 
-(defn draw-object [#^GL gl object]
-  (doseq [polygon object]
-    (.glBegin gl GL/GL_POLYGON)
-    (doseq [vertex polygon]
-      (let [color (:color vertex)
-            position (:position vertex)
-            r (:r color)
-            g (:g color)
-            b (:b color)
-            x (:x position)
-            y (:y position)]
-        (.glColor3f  gl r g b)
-        (.glVertex3f gl x y 0)))
-    (.glEnd gl)))
+(defn draw-object [#^GL gl object-ref]
+  (let [object @object-ref]
+    (doseq [poly-ref object]
+      (let [poly @poly-ref]
+        (if (= nil (:tess poly))
+          (dosync (alter poly-ref assoc :tess (jtess/tess (:verts poly))))))
+      (let [chunk-list-ref (:tess @poly-ref)]
+        (doseq [chunk-ref @chunk-list-ref]
+          (let [chunk @chunk-ref]
+            (.glBegin gl (:type chunk))
+            (doseq [vertex (:verts chunk)]
+              (let [color (:color vertex)
+                    position (:position vertex)
+                    r (:r color)
+                    g (:g color)
+                    b (:b color)
+                    x (:x position)
+                    y (:y position)]
+                (.glColor3f  gl r g b)
+                (.glVertex3f gl x y 0)))
+            (.glEnd gl)))))))
 
 (defn gl-display [canvas]
   (process-events)

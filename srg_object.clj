@@ -8,7 +8,8 @@
 
 (defn make-polygon [polygon-tag]
   (let [content (:content polygon-tag)]
-    (map make-vertex (filter #(= :vertex (:tag %)) content))))
+    (ref {:tess nil
+          :verts (map make-vertex (filter #(= :vertex (:tag %)) content))})))
 
 (defn get-polygons [tree]
   (let [content (:content tree)]
