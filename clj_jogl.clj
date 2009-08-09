@@ -9,8 +9,10 @@
             [clj-jogl-commands :as jcmd]
             [clj-jogl-tess :as jtess]
             [log :as log]
-            [srg-object :as srg-object]))
+            [srg-object :as srg-object]
+            [clj-jogl-app :as app]))
 
+(def g-app (app/create))
 (def g-object (ref (srg-object/from-xml "island.xml")))
 (def g-camera (ref {:x  0 :y  0 :z  -10
                     :tx 0 :ty 0 :tz -10}))
@@ -34,8 +36,9 @@
   (let [e (:data event)
         x (.getX e)
         y (.getY e)]
-    (jcmd/fire-command g-cmd-system {:type :relative-drag
-                                     :data [x y]})))
+    (when (= :pan (:mode @g-app))
+      (jcmd/fire-command g-cmd-system {:type :relative-drag
+                                       :data [x y]}))))
 
 (defn handle-mouse-wheel-moved [event]
   (let [e (:data event)
@@ -49,6 +52,16 @@
     (cond (= ch \q) (jcmd/spew-commands g-cmd-system)
           (= ch \w) (jcmd/replay-commands g-cmd-system))))
 
+(defn handle-key-pressed [event]
+  (let [e (:data event)
+        ch (.getKeyChar e)]
+    (cond (= ch \space) (dosync (alter g-app assoc :mode :pan)))))
+
+(defn handle-key-released [event]
+  (let [e (:data event)
+        ch (.getKeyChar e)]
+    (cond (= ch \space) (dosync (alter g-app assoc :mode :normal)))))
+
 (defn fire-event [event]
   (dosync (alter g-events conj event)))
 
@@ -56,7 +69,9 @@
   (cond (= "mousePressed"    (:type event)) (handle-mouse-pressed event)
         (= "mouseDragged"    (:type event)) (handle-mouse-dragged event)
         (= "mouseWheelMoved" (:type event)) (handle-mouse-wheel-moved event)
-        (= "keyTyped" (:type event)) (handle-key-typed event)
+        (= "keyTyped"        (:type event)) (handle-key-typed event)
+        (= "keyPressed"      (:type event)) (handle-key-pressed event)
+        (= "keyReleased"     (:type event)) (handle-key-released event)
         :else (log/log "Unhandled event: " event)))
 
 (defn process-events []
@@ -65,7 +80,7 @@
   (dosync (alter g-events (fn [_] []))))
 
 (defn tick [dt]
-  (log/log (double dt))
+;  (log/log (double dt))
   (let [z (:z @g-camera)
         tz (:tz @g-camera)
         dz (Math/abs (- z tz))]
@@ -148,7 +163,9 @@
 
 (defn get-key-handler []
   (proxy [KeyAdapter] []
-    (keyTyped [e] (fire-event {:type "keyTyped" :data e}))))
+    (keyTyped    [e] (fire-event {:type "keyTyped"    :data e}))
+    (keyPressed  [e] (fire-event {:type "keyPressed"  :data e}))
+    (keyReleased [e] (fire-event {:type "keyReleased" :data e}))))
 
 (defn go []
   (let [frame (Frame. "clj-jogl")
