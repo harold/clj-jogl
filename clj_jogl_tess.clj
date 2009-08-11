@@ -3,13 +3,14 @@
            (javax.media.opengl.glu GLUtessellatorCallbackAdapter)))
 
 (defn add-vertex [list-ref data]
-  (let [list @list-ref
-        last-ref (last list)
-        verts (:verts @last-ref)]
-    (dosync (alter last-ref assoc :verts (conj verts data)))))
+  (let [list       @list-ref
+        last-index (- (count list) 1)
+        last-entry (last list)
+        verts      (:verts last-entry)]
+    (dosync (alter list-ref assoc last-index (assoc last-entry :verts (conj verts data))))))
 
 (defn add-begin [list-ref type]
-  (dosync (alter list-ref conj (ref {:type type :verts []}))))
+  (dosync (alter list-ref conj {:type type :verts []})))
 
 (defn get-tess-handler [list-ref]
   (proxy [GLUtessellatorCallbackAdapter] []
@@ -46,4 +47,4 @@
     (.gluTessEndContour tessellator)
     (.gluTessEndPolygon tessellator)
     (.gluDeleteTess glu tessellator)
-    tess-list))
+    @tess-list))

@@ -7,7 +7,6 @@
            (java.io File FileWriter))
   (:require [clj-jogl-app :as app]
             [clj-jogl-commands :as jcmd]
-            [clj-jogl-tess :as jtess]
             [log :as log]))
 
 (def g-app (app/create))
@@ -103,26 +102,23 @@
 (def t (ref (get-time)))
 
 (defn render-doc [#^GL gl app-ref]
+  (app/tess app-ref)
   (let [doc (app/get-doc app-ref)]
-    (doseq [poly-ref doc]
-      (let [poly @poly-ref]
-        (if (= nil (:tess poly))
-          (dosync (alter poly-ref assoc :tess (jtess/tess (:verts poly))))))
-      (let [chunk-list-ref (:tess @poly-ref)]
-        (doseq [chunk-ref @chunk-list-ref]
-          (let [chunk @chunk-ref]
-            (.glBegin gl (:type chunk))
-            (doseq [vertex (:verts chunk)]
-              (let [color (:color vertex)
-                    position (:position vertex)
-                    r (:r color)
-                    g (:g color)
-                    b (:b color)
-                    x (:x position)
-                    y (:y position)]
-                (.glColor3f  gl r g b)
-                (.glVertex3f gl x y 0)))
-            (.glEnd gl)))))))
+    (doseq [poly (:polygons doc)]
+      (let [chunk-list (:tess poly)]
+        (doseq [chunk chunk-list]
+          (.glBegin gl (:type chunk))
+          (doseq [vertex (:verts chunk)]
+            (let [color (:color vertex)
+                  position (:position vertex)
+                  r (:r color)
+                  g (:g color)
+                  b (:b color)
+                  x (:x position)
+                  y (:y position)]
+              (.glColor3f  gl r g b)
+              (.glVertex3f gl x y 0)))
+          (.glEnd gl))))))
 
 (defn gl-display [canvas]
   (process-events)

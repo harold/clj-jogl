@@ -1,5 +1,6 @@
 (ns clj-jogl-app
   (:require [clj-jogl-commands :as jcmd]
+            [clj-jogl-tess :as jtess]
             [srg-object :as srg-object]))
 
 (defn create []
@@ -13,8 +14,19 @@
 (defn set-mode [app mode]
   (dosync (alter app assoc :mode mode)))
 
+(defn get-polygon [vert-list]
+  {:tess nil
+   :vertices vert-list})
+
+(defn get-polygons [poly-list]
+  (map get-polygon poly-list))
+
+(defn new-doc [object]
+  {:polygons (get-polygons object)})
+
 (defn load-doc [app path]
-  (dosync (alter app assoc :doc (srg-object/from-xml path))))
+  (let [object (srg-object/from-xml path)]
+    (dosync (alter app assoc :doc (new-doc object)))))
 
 (defn get-doc [app]
   (:doc @app))
@@ -27,3 +39,16 @@
 
 (defn set-camera-property [app property value]
   (dosync (alter (get-camera app) assoc property value)))
+
+(defn poly-tess [poly]
+  (if (= nil (:tess poly))
+    (do
+      (println "TESSING")
+      (assoc poly :tess (jtess/tess (:vertices poly))))
+    poly))
+
+(defn doc-tess [doc]
+  {:polygons (doall (map poly-tess (:polygons doc)))})
+
+(defn tess [app]
+  (dosync (alter app assoc :doc (doc-tess (get-doc app)))))
