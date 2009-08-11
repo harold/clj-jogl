@@ -13,10 +13,7 @@
             [clj-jogl-app :as app]))
 
 (def g-app (app/create))
-(def g-object (ref (srg-object/from-xml "island.xml")))
-(def g-camera (ref {:x  0 :y  0 :z  -10
-                    :tx 0 :ty 0 :tz -10}))
-(def g-cmd-system (jcmd/create-command-system g-camera))
+(app/load-doc g-app "island.xml")
 (def g-events (ref []))
 
 (defn get-window-adapter [frame animator]
@@ -29,38 +26,38 @@
   (let [e (:data event)
         x (.getX e)
         y (.getY e)]
-    (jcmd/fire-command g-cmd-system {:type :relative-drag-start
-                                     :drag-start [x y]})))
+    (jcmd/fire-command (app/get-cmd-system g-app) {:type :relative-drag-start
+                                                   :drag-start [x y]})))
 
 (defn handle-mouse-dragged [event]
   (let [e (:data event)
         x (.getX e)
         y (.getY e)]
     (when (= :pan (:mode @g-app))
-      (jcmd/fire-command g-cmd-system {:type :relative-drag
-                                       :data [x y]}))))
+      (jcmd/fire-command (app/get-cmd-system g-app) {:type :relative-drag
+                                                     :data [x y]}))))
 
 (defn handle-mouse-wheel-moved [event]
   (let [e (:data event)
         direction (.getWheelRotation e)]
-    (jcmd/fire-command g-cmd-system {:type :relative-zoom
-                                     :data direction})))
+    (jcmd/fire-command (app/get-cmd-system g-app) {:type :relative-zoom
+                                                   :data direction})))
 
 (defn handle-key-typed [event]
   (let [e (:data event)
         ch (.getKeyChar e)]
-    (cond (= ch \q) (jcmd/spew-commands g-cmd-system)
-          (= ch \w) (jcmd/replay-commands g-cmd-system))))
+    (cond (= ch \q) (jcmd/spew-commands   (app/get-cmd-system g-app))
+          (= ch \w) (jcmd/replay-commands (app/get-cmd-system g-app)))))
 
 (defn handle-key-pressed [event]
   (let [e (:data event)
         ch (.getKeyChar e)]
-    (cond (= ch \space) (dosync (alter g-app assoc :mode :pan)))))
+    (cond (= ch \space) (app/set-mode g-app :pan))))
 
 (defn handle-key-released [event]
   (let [e (:data event)
         ch (.getKeyChar e)]
-    (cond (= ch \space) (dosync (alter g-app assoc :mode :normal)))))
+    (cond (= ch \space) (app/set-mode g-app :normal))))
 
 (defn fire-event [event]
   (dosync (alter g-events conj event)))
@@ -77,15 +74,15 @@
 (defn process-events []
   (doseq [event @g-events]
     (process-event event))
-  (dosync (alter g-events (fn [_] []))))
+  (dosync (ref-set g-events [])))
 
 (defn tick [dt]
 ;  (log/log (double dt))
-  (let [z (:z @g-camera)
-        tz (:tz @g-camera)
+  (let [z (:z @(app/get-camera g-app))
+        tz (:tz @(app/get-camera g-app))
         dz (Math/abs (- z tz))]
     (if (< 0.001 dz)
-      (dosync (alter g-camera assoc :z (+ z (/ (- tz z) 10.0)))))))
+      (app/set-camera-property g-app :z (+ z (/ (- tz z) 10.0))))))
 
 (defn gl-init [canvas]
   (let [gl (.getGL canvas)]
@@ -107,9 +104,9 @@
 (defn get-time [& _] (/ (System/nanoTime) 1000000))
 (def t (ref (get-time)))
 
-(defn draw-object [#^GL gl object-ref]
-  (let [object @object-ref]
-    (doseq [poly-ref object]
+(defn render-doc [#^GL gl app-ref]
+  (let [doc (app/get-doc app-ref)]
+    (doseq [poly-ref doc]
       (let [poly @poly-ref]
         (if (= nil (:tess poly))
           (dosync (alter poly-ref assoc :tess (jtess/tess (:verts poly))))))
@@ -140,10 +137,10 @@
       (.glMatrixMode GL/GL_MODELVIEW)
       (.glLoadIdentity)
       (.glPushMatrix)
-      (.glTranslatef (- (:x @g-camera))
-                     (- (:y @g-camera))
-                     (:z @g-camera))
-      (draw-object g-object)
+      (.glTranslatef (- (:x @(app/get-camera g-app)))
+                     (- (:y @(app/get-camera g-app)))
+                        (:z @(app/get-camera g-app)))
+      (render-doc g-app)
       (.glPopMatrix))
     (dosync (alter t get-time))))
 
