@@ -43,7 +43,6 @@
 (defn poly-tess [poly]
   (if (= nil (:tess poly))
     (do
-      (println "TESSING")
       (assoc poly :tess (jtess/tess (:vertices poly))))
     poly))
 
