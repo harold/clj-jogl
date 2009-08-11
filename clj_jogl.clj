@@ -5,12 +5,10 @@
            (javax.media.opengl GLCanvas GLEventListener GL)
            (javax.media.opengl.glu GLU)
            (java.io File FileWriter))
-  (:require [clj-jogl-gl :as jgl]
+  (:require [clj-jogl-app :as app]
             [clj-jogl-commands :as jcmd]
             [clj-jogl-tess :as jtess]
-            [log :as log]
-            [srg-object :as srg-object]
-            [clj-jogl-app :as app]))
+            [log :as log]))
 
 (def g-app (app/create))
 (app/load-doc g-app "island.xml")
