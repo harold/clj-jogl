@@ -85,6 +85,7 @@
   (let [gl (.getGL canvas)]
     (doto gl
       (.setSwapInterval 1)
+      (.glPointSize 3)
       (.glEnable GL/GL_CULL_FACE)
       (.glDisable GL/GL_DEPTH_TEST))))
 
@@ -120,6 +121,27 @@
               (.glVertex3f gl x y 0)))
           (.glEnd gl))))))
 
+(defn render-vertices [#^GL gl app-ref]
+  (let [doc (app/get-doc app-ref)
+        camera @(app/get-camera app-ref)]
+    (doto gl
+      (.glMatrixMode GL/GL_MODELVIEW)
+      (.glLoadIdentity)
+      (.glPushMatrix)
+      (.glTranslatef (- (:x camera))
+                     (- (:y camera))
+                        (:z camera))
+      (.glBegin GL/GL_POINTS)
+      (.glColor3f 1 1 1))
+    (doseq [poly (:polygons doc)]
+      (doseq [vert (:vertices poly)]
+        (let [x (:x (:position vert))
+              y (:y (:position vert))]
+          (.glVertex3f gl x y 0))))
+    (doto gl
+      (.glPopMatrix)
+      (.glEnd))))
+
 (defn gl-display [canvas]
   (process-events)
   (let [#^GL gl (.getGL canvas)
@@ -135,7 +157,8 @@
                      (- (:y @(app/get-camera g-app)))
                         (:z @(app/get-camera g-app)))
       (render-doc g-app)
-      (.glPopMatrix))
+      (.glPopMatrix)
+      (render-vertices g-app))
     (dosync (alter t get-time))))
 
 (defn get-gl-app []

@@ -17,7 +17,7 @@ camera - g-camera"
         projection (make-array Double/TYPE  16)
         world-coords-near (make-array Double/TYPE 4)
         world-coords-far  (make-array Double/TYPE 4)
-	camera @camera-ref]
+        camera @camera-ref]
     (doto gl
       (.glMatrixMode GL/GL_MODELVIEW)
       (.glLoadIdentity)
