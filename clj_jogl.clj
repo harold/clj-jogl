@@ -95,16 +95,24 @@
     (doto gl
       (.glMatrixMode GL/GL_PROJECTION)
       (.glLoadIdentity)
-      (.glFrustum (- 0 a) a -1 1 1 1000)
-      (.glMatrixMode GL/GL_MODELVIEW)
-      (.glLoadIdentity))))
+      (.glFrustum (- 0 a) a -1 1 1 1000))))
 
 (defn get-time [& _] (/ (System/nanoTime) 1000000))
 (def t (ref (get-time)))
 
-(defn render-doc [#^GL gl app-ref]
+(defn render-doc [#^GL gl app-ref w h a]
   (app/tess app-ref)
   (let [doc (app/get-doc app-ref)]
+    (doto gl
+      (.glMatrixMode GL/GL_PROJECTION)
+      (.glLoadIdentity)
+      (.glFrustum (- 0 a) a -1 1 1 1000)
+      (.glMatrixMode GL/GL_MODELVIEW)
+      (.glLoadIdentity)
+      (.glPushMatrix)
+      (.glTranslatef (- (:x @(app/get-camera g-app)))
+                     (- (:y @(app/get-camera g-app)))
+                        (:z @(app/get-camera g-app))))
     (doseq [poly (:polygons doc)]
       (let [chunk-list (:tess poly)]
         (doseq [chunk chunk-list]
@@ -119,12 +127,16 @@
                   y (:y position)]
               (.glColor3f  gl r g b)
               (.glVertex3f gl x y 0)))
-          (.glEnd gl))))))
+          (.glEnd gl))))
+      (.glPopMatrix gl)))
 
-(defn render-vertices [#^GL gl app-ref]
+(defn render-vertices [#^GL gl app-ref w h a]
   (let [doc (app/get-doc app-ref)
         camera @(app/get-camera app-ref)]
     (doto gl
+      (.glMatrixMode GL/GL_PROJECTION)
+      (.glLoadIdentity)
+      (.glFrustum (- 0 a) a -1 1 1 1000)
       (.glMatrixMode GL/GL_MODELVIEW)
       (.glLoadIdentity)
       (.glPushMatrix)
@@ -142,23 +154,39 @@
       (.glPopMatrix)
       (.glEnd))))
 
+(defn render-toolbar [#^GL gl app-ref w h a]
+  (doto gl
+    (.glMatrixMode GL/GL_PROJECTION)
+    (.glPushMatrix)
+    (.glLoadIdentity)
+    (.glOrtho 0 w 0 h -1 1)
+    (.glMatrixMode GL/GL_MODELVIEW)
+    (.glLoadIdentity)
+    (.glTranslatef 0 (- h 32) 0)
+    (.glColor3f 1 1 1)
+    (.glBegin GL/GL_QUADS)
+    (.glVertex3f 0 0 0)
+    (.glVertex3f 32 0 0)
+    (.glVertex3f 32 32 0)
+    (.glVertex3f 0 32 0)
+    (.glEnd)
+    (.glMatrixMode GL/GL_PROJECTION)
+    (.glPopMatrix)))
+
 (defn gl-display [canvas]
   (process-events)
   (let [#^GL gl (.getGL canvas)
-        dt (- (get-time) @t)]
+        dt (- (get-time) @t)
+        w (.getWidth canvas)
+        h (.getHeight canvas)
+        a (double (/ w h))]
     (tick dt)
     (doto gl
       (.glClearColor 0.1 0.1 0.1 0)
       (.glClear (bit-or GL/GL_COLOR_BUFFER_BIT GL/GL_DEPTH_BUFFER_BIT))
-      (.glMatrixMode GL/GL_MODELVIEW)
-      (.glLoadIdentity)
-      (.glPushMatrix)
-      (.glTranslatef (- (:x @(app/get-camera g-app)))
-                     (- (:y @(app/get-camera g-app)))
-                        (:z @(app/get-camera g-app)))
-      (render-doc g-app)
-      (.glPopMatrix)
-      (render-vertices g-app))
+      (render-doc g-app w h a)
+      (render-vertices g-app w h a)
+      (render-toolbar g-app w h a))
     (dosync (alter t get-time))))
 
 (defn get-gl-app []
