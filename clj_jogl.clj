@@ -10,6 +10,7 @@
             [log :as log]))
 
 (def g-app (app/create))
+(dosync (alter g-app assoc :cmd-system (jcmd/create-command-system (app/get-camera g-app) g-app)))
 (app/load-doc g-app "island.xml")
 (def g-events (ref []))
 
@@ -23,8 +24,10 @@
   (let [e (:data event)
         x (.getX e)
         y (.getY e)]
-    (jcmd/fire-command (app/get-cmd-system g-app) {:type :relative-drag-start
-                                                   :drag-start [x y]})))
+    (when (= :pan (:mode @g-app))
+      (jcmd/fire-command (app/get-cmd-system g-app) {:type :relative-drag-start :data [x y]}))
+    (when (= :normal (:mode @g-app))
+      (jcmd/fire-command (app/get-cmd-system g-app) {:type :select-nearest-vertex :data [x y]}))))
 
 (defn handle-mouse-dragged [event]
   (let [e (:data event)
@@ -43,8 +46,10 @@
 (defn handle-key-typed [event]
   (let [e (:data event)
         ch (.getKeyChar e)]
-    (cond (= ch \q) (jcmd/spew-commands   (app/get-cmd-system g-app))
-          (= ch \w) (jcmd/replay-commands (app/get-cmd-system g-app)))))
+    (cond (= ch \q) (app/set-tool g-app :select)
+          (= ch \w) (app/set-tool g-app :move)
+          (= ch \e) (app/set-tool g-app :rotate)
+          (= ch \r) (app/set-tool g-app :scale))))
 
 (defn handle-key-pressed [event]
   (let [e (:data event)
@@ -143,16 +148,33 @@
       (.glTranslatef (- (:x camera))
                      (- (:y camera))
                         (:z camera))
-      (.glBegin GL/GL_POINTS)
-      (.glColor3f 1 1 1))
+      (.glBegin GL/GL_POINTS))
     (doseq [poly (:polygons doc)]
       (doseq [vert (:vertices poly)]
         (let [x (:x (:position vert))
               y (:y (:position vert))]
+          (if (= vert (app/get-vertex-selection g-app))
+            (.glColor3f gl 1 0 0)
+            (.glColor3f gl 1 1 1))
           (.glVertex3f gl x y 0))))
     (doto gl
       (.glPopMatrix)
       (.glEnd))))
+
+(defn highlight-tool [#^GL gl tool]
+  (if (= tool (app/get-tool g-app))
+      (.glColor3f gl 1 0 0)
+      (.glColor3f gl 1 1 1)))
+
+(defn render-tool-button [#^GL gl tool]
+  (doto gl
+    (highlight-tool tool)
+    (.glBegin GL/GL_QUADS)
+    (.glVertex3f 0 0 0)
+    (.glVertex3f 32 0 0)
+    (.glVertex3f 32 32 0)
+    (.glVertex3f 0 32 0)
+    (.glEnd)))
 
 (defn render-toolbar [#^GL gl app-ref w h a]
   (doto gl
@@ -163,13 +185,13 @@
     (.glMatrixMode GL/GL_MODELVIEW)
     (.glLoadIdentity)
     (.glTranslatef 0 (- h 32) 0)
-    (.glColor3f 1 1 1)
-    (.glBegin GL/GL_QUADS)
-    (.glVertex3f 0 0 0)
-    (.glVertex3f 32 0 0)
-    (.glVertex3f 32 32 0)
-    (.glVertex3f 0 32 0)
-    (.glEnd)
+    (render-tool-button :select)
+    (.glTranslatef 32 0 0)
+    (render-tool-button :move)
+    (.glTranslatef 32 0 0)
+    (render-tool-button :rotate)
+    (.glTranslatef 32 0 0)
+    (render-tool-button :scale)
     (.glMatrixMode GL/GL_PROJECTION)
     (.glPopMatrix)))
 

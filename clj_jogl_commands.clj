@@ -1,11 +1,14 @@
 (ns clj-jogl-commands
-  (:require [clj-jogl-gl :as jgl])
+  (:require [clj-jogl-gl :as jgl]
+            [clj-jogl-app :as app])
   (:import (java.io File FileWriter FileReader PushbackReader)))
 
 (defn create-command-system
   "Create a jogl command system"
-  [camera]
-  (ref { :camera camera :commands [] }))
+  [camera app-ref]
+  (ref {:camera   camera
+        :commands []
+        :app-ref  app-ref}))
 
 (defn relative-drag-start
   [cmd-system-ref [x y]]
@@ -41,14 +44,25 @@
         cz (:z @camera)]
     (dosync (alter camera assoc :tz (+ cz dz)))))
 
+(defn select-nearest-vertex [cmd-system-ref [x y]]
+  (let [cmd-system @cmd-system-ref
+        app-ref (:app-ref cmd-system)
+        camera (:camera cmd-system)
+        world-point (jgl/screen-to-world x
+                                         y
+                                         (double (- (:z @camera)))
+                                         camera)]
+    (app/select-nearest-vertex app-ref (:x world-point) (:y world-point))))
+
 (defn fire-command
   "Fire off a command.  This will ready the command for execution"
   [cmd-system cmd]
   (let [cmd-type (:type cmd)]
     (cond
-      (= cmd-type :relative-drag-start) (relative-drag-start cmd-system (:drag-start cmd))
+      (= cmd-type :relative-drag-start) (relative-drag-start cmd-system (:data cmd))
       (= cmd-type :relative-drag) (relative-drag cmd-system cmd)
-      (= cmd-type :relative-zoom) (relative-zoom cmd-system cmd)))
+      (= cmd-type :relative-zoom) (relative-zoom cmd-system cmd)
+      (= cmd-type :select-nearest-vertex) (select-nearest-vertex cmd-system (:data cmd))))
   (dosync (alter cmd-system assoc :commands (conj (:commands @cmd-system) cmd))))
 
 (defn spew-commands
