@@ -6,11 +6,9 @@
            (javax.media.opengl.glu GLU)
            (java.io File FileWriter))
   (:require [clj-jogl-app :as app]
-            [clj-jogl-commands :as jcmd]
             [log :as log]))
 
 (def g-app (app/create))
-(dosync (alter g-app assoc :cmd-system (jcmd/create-command-system (app/get-camera g-app) g-app)))
 (app/load-doc g-app "island.xml")
 (def g-events (ref []))
 
@@ -24,24 +22,24 @@
   (let [e (:data event)
         x (.getX e)
         y (.getY e)]
-    (when (= :pan (:mode @g-app))
-      (jcmd/fire-command (app/get-cmd-system g-app) {:type :relative-drag-start :data [x y]}))
-    (when (= :normal (:mode @g-app))
-      (jcmd/fire-command (app/get-cmd-system g-app) {:type :select-nearest-vertex :data [x y]}))))
+    (when (= :pan (app/get-mode g-app))
+      (app/fire-command g-app {:type :relative-drag-start   :data [x y]}))
+    (when (= :normal (app/get-mode g-app))
+      (app/fire-command g-app {:type :select-nearest-vertex :data [x y]}))))
 
 (defn handle-mouse-dragged [event]
   (let [e (:data event)
         x (.getX e)
         y (.getY e)]
     (when (= :pan (:mode @g-app))
-      (jcmd/fire-command (app/get-cmd-system g-app) {:type :relative-drag
-                                                     :data [x y]}))))
+      (app/fire-command g-app {:type :relative-drag
+                               :data [x y]}))))
 
 (defn handle-mouse-wheel-moved [event]
   (let [e (:data event)
         direction (.getWheelRotation e)]
-    (jcmd/fire-command (app/get-cmd-system g-app) {:type :relative-zoom
-                                                   :data direction})))
+    (app/fire-command g-app {:type :relative-zoom
+                             :data direction})))
 
 (defn handle-key-typed [event]
   (let [e (:data event)
@@ -80,8 +78,8 @@
 
 (defn tick [dt]
 ;  (log/log (double dt))
-  (let [z (:z @(app/get-camera g-app))
-        tz (:tz @(app/get-camera g-app))
+  (let [z  (:z  (app/get-camera g-app))
+        tz (:tz (app/get-camera g-app))
         dz (Math/abs (- z tz))]
     (if (< 0.001 dz)
       (app/set-camera-property g-app :z (+ z (/ (- tz z) 10.0))))))
@@ -115,9 +113,9 @@
       (.glMatrixMode GL/GL_MODELVIEW)
       (.glLoadIdentity)
       (.glPushMatrix)
-      (.glTranslatef (- (:x @(app/get-camera g-app)))
-                     (- (:y @(app/get-camera g-app)))
-                        (:z @(app/get-camera g-app))))
+      (.glTranslatef (- (:x (app/get-camera g-app)))
+                     (- (:y (app/get-camera g-app)))
+                        (:z (app/get-camera g-app))))
     (doseq [poly (:polygons doc)]
       (let [chunk-list (:tess poly)]
         (doseq [chunk chunk-list]
@@ -137,7 +135,7 @@
 
 (defn render-vertices [#^GL gl app-ref w h a]
   (let [doc (app/get-doc app-ref)
-        camera @(app/get-camera app-ref)]
+        camera (app/get-camera app-ref)]
     (doto gl
       (.glMatrixMode GL/GL_PROJECTION)
       (.glLoadIdentity)
